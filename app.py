@@ -1,26 +1,7 @@
 import streamlit as st
-from moviepy.editor import VideoFileClip
 import whisper
-import os
 import re
-
-# Function to convert video to audio
-def convert_video_to_audio(video_path):
-    try:
-        # Load video file
-        video = VideoFileClip(video_path)
-        
-        # Path to save the extracted audio
-        audio_path = "temp_audio.wav"
-        
-        # Extract audio
-        st.write("Converting video to audio...")
-        video.audio.write_audiofile(audio_path, codec='pcm_s16le')
-        
-        return audio_path
-    except Exception as e:
-        st.error(f"Error during video to audio conversion: {e}")
-        return None
+import os
 
 # Function to transcribe audio using Whisper
 def transcribe_audio(audio_path):
@@ -37,7 +18,7 @@ def transcribe_audio(audio_path):
 def extract_insights(transcription):
     st.write("Extracting insights...")
     
-    # Regex for extracting years of experience (basic example)
+    # Regex for extracting years of experience
     experience_pattern = r"(\d{1,2})\s*years of experience"
     experience_match = re.search(experience_pattern, transcription.lower())
     years_of_experience = experience_match.group(1) if experience_match else "Not mentioned"
@@ -46,11 +27,11 @@ def extract_insights(transcription):
     tech_stack_keywords = ["python", "java", "sql", "javascript", "c++", "html", "css", "docker", "kubernetes", "aws", "azure"]
     tech_stack = [tech for tech in tech_stack_keywords if tech in transcription.lower()]
     
-    # Extracting industry information (basic example)
+    # Extracting industry information
     industry_keywords = ["banking", "finance", "healthcare", "education", "retail", "technology"]
     industry = [ind for ind in industry_keywords if ind in transcription.lower()]
     
-    # Projects worked on (for simplicity, we'll look for the keyword "project")
+    # Projects worked on (basic check for the keyword "project")
     project_pattern = r"project[s]?"
     projects_worked_on = "Mentioned" if re.search(project_pattern, transcription.lower()) else "Not mentioned"
     
@@ -66,45 +47,38 @@ def extract_insights(transcription):
 
 # Main Streamlit App Logic
 def main():
-    st.title("Tech Profile Video Analyzer")
+    st.title("Tech Profile Audio Analyzer")
     
-    # Upload video file
-    tfile = st.file_uploader("Upload your tech profile video", type=['mp4', 'mov', 'avi'])
+    # Upload audio file
+    audio_file = st.file_uploader("Upload your tech profile audio", type=['wav', 'mp3'])
     
-    if tfile:
-        # Save the uploaded video temporarily
-        video_path = tfile.name
-        with open(video_path, "wb") as f:
-            f.write(tfile.read())
+    if audio_file:
+        # Save the uploaded audio temporarily
+        audio_path = audio_file.name
+        with open(audio_path, "wb") as f:
+            f.write(audio_file.read())
         
-        # Convert video to audio
-        audio_path = convert_video_to_audio(video_path)
+        # Transcribe the audio
+        transcription = transcribe_audio(audio_path)
         
-        if audio_path:
-            # Transcribe the audio
-            transcription = transcribe_audio(audio_path)
+        if transcription:
+            st.write("Transcription")
+            st.text(transcription)
             
-            if transcription:
-                st.write("Transcription")
-                st.text(transcription)
-                
-                # Extract insights from the transcription
-                insights = extract_insights(transcription)
-                
-                # Display insights
-                st.write("Profile Analysis")
-                st.write(f"Years of Experience: {insights['Years of Experience']}")
-                st.write(f"Tech Stack: {', '.join(insights['Tech Stack'])}")
-                st.write(f"Industry: {', '.join(insights['Industry'])}")
-                st.write(f"Projects Worked On: {insights['Projects']}")
-                
-                # Clean up temporary files
-                os.remove(audio_path)
-                os.remove(video_path)
-            else:
-                st.error("Transcription failed.")
+            # Extract insights from the transcription
+            insights = extract_insights(transcription)
+            
+            # Display insights
+            st.write("Profile Analysis")
+            st.write(f"Years of Experience: {insights['Years of Experience']}")
+            st.write(f"Tech Stack: {', '.join(insights['Tech Stack'])}")
+            st.write(f"Industry: {', '.join(insights['Industry'])}")
+            st.write(f"Projects Worked On: {insights['Projects']}")
+            
+            # Clean up temporary files
+            os.remove(audio_path)
         else:
-            st.error("Audio extraction failed.")
+            st.error("Transcription failed.")
 
 if __name__ == "__main__":
     main()
