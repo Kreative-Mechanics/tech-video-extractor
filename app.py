@@ -1,66 +1,82 @@
-import moviepy.editor as mp
-import whisper
-import os
-import math
-import tempfile
-from pydub import AudioSegment
-from pydub.utils import make_chunks
-
-# Load Whisper model
-model = whisper.load_model("base")
-
-# Function to transcribe a single audio chunk
-def transcribe_audio_chunk(audio_chunk_path):
-    result = model.transcribe(audio_chunk_path)
-    return result['text']
-
-# Function to split audio into smaller chunks and transcribe each
-def transcribe_video_in_chunks(video_path, chunk_length_ms=60000):  # Chunk length in milliseconds
-    # Extract audio from the video
-    video = mp.VideoFileClip(video_path)
-    audio_path = video_path.replace('.mp4', '.wav')
-    video.audio.write_audiofile(audio_path)
-
-    # Load the audio file and split into chunks
-    audio = AudioSegment.from_wav(audio_path)
-    audio_chunks = make_chunks(audio, chunk_length_ms)
-
-    transcription = ""
-
-    # Transcribe each chunk and append to the final transcription
-    for i, chunk in enumerate(audio_chunks):
-        chunk_name = f"chunk{i}.wav"
-        chunk.export(chunk_name, format="wav")
-
-        # Transcribe the chunk
-        chunk_transcription = transcribe_audio_chunk(chunk_name)
-        transcription += chunk_transcription + " "
-
-        # Remove temporary chunk file
-        os.remove(chunk_name)
-
-    # Remove the extracted audio file after transcription
-    os.remove(audio_path)
-
-    return transcription
-
-# Streamlit app to handle video upload and transcription
 import streamlit as st
+import subprocess
+from moviepy.editor import VideoFileClip
+import whisper
 
-st.title("Tech Profile Video Reviewer")
+# Function to check if FFmpeg is installed
+def check_ffmpeg_installation():
+    try:
+        ffmpeg_installed = subprocess.run(["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return ffmpeg_installed.stdout.decode()
+    except FileNotFoundError:
+        return None
 
-# Upload video file
-uploaded_video = st.file_uploader("Choose a video...", type=["mp4", "mov", "avi"])
+# Function to extract audio from the video and transcribe it
+def transcribe_video_in_chunks(video_path):
+    try:
+        # Load video file
+        video = VideoFileClip(video_path)
+        
+        # Path to save the extracted audio
+        audio_path = "temp_audio.wav"
+        
+        # Extract audio, explicitly specifying the codec
+        st.write("Extracting audio from the video...")
+        video.audio.write_audiofile(audio_path, codec='pcm_s16le')
+        
+        # Now proceed to transcribe the extracted audio
+        st.write("Transcribing audio...")
+        transcription = transcribe_audio_in_chunks(audio_path)
+        return transcription
+    except Exception as e:
+        st.error(f"Error during video transcription: {e}")
+        return None
 
-if uploaded_video is not None:
-    # Save the uploaded video to a temporary location
-    tfile = tempfile.NamedTemporaryFile(delete=False)
-    tfile.write(uploaded_video.read())
+# Function to transcribe the extracted audio file in chunks
+def transcribe_audio_in_chunks(audio_path):
+    model = whisper.load_model("base")  # Load the Whisper model
+    result = model.transcribe(audio_path)
+    return result["text"]
 
-    # Transcribe the video in chunks
-    st.write("Transcribing video in chunks...")
-    transcription = transcribe_video_in_chunks(tfile.name)
-
-    # Display the full transcription
-    st.subheader("Transcription")
-    st.write(transcription)
+# Main Streamlit App Logic
+def main():
+    st.title("Tech Profile Video Extractor")
+    
+    # Display FFmpeg version to check if it's installed
+    ffmpeg_version = check_ffmpeg_installation()
+    if ffmpeg_version:
+        st.write("FFmpeg is installed and available.")
+        st.code(ffmpeg_version)
+    else:
+        st.error("FFmpeg is not installed or not accessible in this environment.")
+    
+    # Upload video
+    tfile = st.file_uploader("Upload your tech profile video", type=['mp4', 'mov', 'avi'])
+    
+    if tfile:
+        # Save the uploaded video temporarily
+        with open(tfile.name, "wb") as f:
+            f.write(tfile.read())
+        
+        st.write(f"Processing video: {tfile.name}")
+        
+        # Transcribe video
+        transcription = transcribe_video_in_chunks(tfile.name)
+        
+        if transcription:
+            st.write("Transcription")
+            st.text(transcription)
+            
+            # Further processing for tech stack, experience, etc. can go here
+            st.write("Profile Analysis")
+            # Example placeholder logic for extracting info (adjust according to your needs)
+            tech_stack = ["SQL", "Python", "JavaScript"]  # Placeholder
+            experience_years = 5  # Placeholder
+            
+            st.write(f"Tech Stack Mentioned: {', '.join(tech_stack)}")
+            st.write(f"Years of Experience: {experience_years}")
+        else:
+            st.error("Transcription failed.")
+        
+if __name__ == "__main__":
+    main()
