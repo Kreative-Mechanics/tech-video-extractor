@@ -1,35 +1,47 @@
 import streamlit as st
-import speech_recognition as sr
-import moviepy.editor as mp
+import whisper
+import spacy
 import tempfile
 import os
 
+# Load spaCy model
+nlp = spacy.load("en_core_web_sm")
 
-# Function to extract audio from video and transcribe using SpeechRecognition
-def transcribe_video(video_path):
-    recognizer = sr.Recognizer()
+# Function to extract and transcribe using Whisper
+def transcribe_video_whisper(video_path):
+    model = whisper.load_model("base")  # Use "base" model for performance, "large" for better accuracy
+    result = model.transcribe(video_path)
+    return result['text']
 
-    # Extract audio from video using moviepy
-    video = mp.VideoFileClip(video_path)
-    audio_path = "audio.wav"
-    video.audio.write_audiofile(audio_path)
+# Extract key information from transcription using spaCy
+def extract_profile_info(transcription):
+    doc = nlp(transcription)
+    
+    years_of_experience = []
+    industries = []
+    tech_stack = ["Python", "JavaScript", "AWS", "React", "SQL", "Docker", "Kubernetes", "Machine Learning", "Data Science"]
+    skills = ["communication", "leadership", "problem-solving", "teamwork"]
+    projects = []
 
-    # Load the audio for speech recognition
-    with sr.AudioFile(audio_path) as source:
-        audio_data = recognizer.record(source)
-        try:
-            # Transcribe the audio to text
-            text = recognizer.recognize_google(audio_data)
-        except sr.UnknownValueError:
-            text = "Sorry, couldn't understand the audio."
-        except sr.RequestError:
-            text = "Request failed; please check your internet connection."
+    for ent in doc.ents:
+        if ent.label_ == "DATE" and "year" in ent.text.lower():
+            years_of_experience.append(ent.text)
+        if ent.label_ == "ORG":
+            industries.append(ent.text)
+    
+    detected_tech_stack = [tech for tech in tech_stack if tech.lower() in transcription.lower()]
+    detected_skills = [skill for skill in skills if skill.lower() in transcription.lower()]
+    
+    if "project" in transcription.lower():
+        projects.append("Project mentioned")
 
-    # Remove the audio file to clean up
-    os.remove(audio_path)
-
-    return text
-
+    return {
+        "years_of_experience": years_of_experience,
+        "industries": industries,
+        "tech_stack": detected_tech_stack,
+        "skills": detected_skills,
+        "projects": projects
+    }
 
 # Streamlit app layout
 st.title("Tech Profile Video Reviewer")
@@ -42,40 +54,35 @@ if uploaded_video is not None:
     # Save video to a temporary location
     tfile = tempfile.NamedTemporaryFile(delete=False)
     tfile.write(uploaded_video.read())
-
+    
     # Display the uploaded video
     st.video(tfile.name)
-
-    # Transcribe the video
+    
+    # Transcribe the video using Whisper
     st.write("Extracting and transcribing audio from the video...")
-    transcription = transcribe_video(tfile.name)
-
+    transcription = transcribe_video_whisper(tfile.name)
+    
     # Display the transcription
     st.subheader("Transcription")
     st.write(transcription)
-
-    # Analyze the transcription for keywords
+    
+    # Extract profile information using NLP
+    profile_info = extract_profile_info(transcription)
+    
+    # Display extracted profile information
     st.subheader("Profile Analysis")
-
-    tech_keywords = ["Python", "JavaScript", "AWS", "React", "SQL", "Docker", "Kubernetes", "Machine Learning",
-                     "Data Science"]
-    skills_keywords = ["communication", "leadership", "problem-solving", "teamwork"]
-    experiences_keywords = ["years", "project", "company", "internship", "freelance", "product"]
-
-    # Display detected tech stack
+    
+    st.write("**Years of Experience:**")
+    st.write(", ".join(profile_info['years_of_experience']) if profile_info['years_of_experience'] else "Not mentioned")
+    
+    st.write("**Industries Mentioned:**")
+    st.write(", ".join(profile_info['industries']) if profile_info['industries'] else "Not mentioned")
+    
     st.write("**Tech Stack Mentioned:**")
-    for keyword in tech_keywords:
-        if keyword.lower() in transcription.lower():
-            st.write(f"- {keyword}")
-
-    # Display detected skills
+    st.write(", ".join(profile_info['tech_stack']) if profile_info['tech_stack'] else "Not mentioned")
+    
     st.write("**Skills Mentioned:**")
-    for skill in skills_keywords:
-        if skill.lower() in transcription.lower():
-            st.write(f"- {skill}")
-
-    # Display detected experiences
-    st.write("**Experiences Mentioned:**")
-    for experience in experiences_keywords:
-        if experience.lower() in transcription.lower():
-            st.write(f"- {experience}")
+    st.write(", ".join(profile_info['skills']) if profile_info['skills'] else "Not mentioned")
+    
+    st.write("**Projects Mentioned:**")
+    st.write(", ".join(profile_info['projects']) if profile_info['projects'] else "Not mentioned")
