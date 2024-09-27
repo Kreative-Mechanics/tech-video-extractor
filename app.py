@@ -9,7 +9,7 @@ nlp = spacy.load("en_core_web_sm")
 
 # Function to extract and transcribe using Whisper
 def transcribe_video_whisper(video_path):
-    model = whisper.load_model("base")  # Use "base" model for performance, "large" for better accuracy
+    model = whisper.load_model("large")  # Use "base" model for performance, "large" for better accuracy
     result = model.transcribe(video_path)
     return result['text']
 
