@@ -4,39 +4,49 @@ from nltk.tokenize import sent_tokenize
 from nltk.corpus import stopwords
 from collections import Counter
 
-# Download necessary NLTK data files
-nltk.download('punkt')
-nltk.download('stopwords')
+# Function to download necessary NLTK data
+def download_nltk_data():
+    try:
+        nltk.download('punkt', quiet=True)
+        nltk.download('stopwords', quiet=True)
+        return True
+    except Exception as e:
+        st.error(f"Error downloading NLTK data: {e}")
+        return False
 
-def extract_points(text):
-    # Tokenize the text into sentences
-    sentences = sent_tokenize(text)
+# Download NLTK data
+if download_nltk_data():
+    def extract_points(text):
+        # Tokenize the text into sentences
+        sentences = sent_tokenize(text)
 
-    # Remove stop words for better insight extraction
-    stop_words = set(stopwords.words('english'))
-    words = [word for word in text.split() if word.lower() not in stop_words]
-    
-    # Count word frequency
-    word_freq = Counter(words)
+        # Remove stop words for better insight extraction
+        stop_words = set(stopwords.words('english'))
+        words = [word for word in text.split() if word.lower() not in stop_words]
 
-    # Extract key sentences based on word frequency
-    key_sentences = sorted(sentences, key=lambda x: sum(word_freq[word] for word in x.split()), reverse=True)
+        # Count word frequency
+        word_freq = Counter(words)
 
-    return key_sentences[:5]  # Return the top 5 sentences
+        # Extract key sentences based on word frequency
+        key_sentences = sorted(sentences, key=lambda x: sum(word_freq[word] for word in x.split()), reverse=True)
 
-# Streamlit app
-st.title("General Text Analysis")
+        return key_sentences[:5]  # Return the top 5 sentences
 
-# Text input for transcription
-transcription = st.text_area("Paste the transcription text here:", height=300)
+    # Streamlit app
+    st.title("General Text Analysis")
 
-if st.button("Analyze"):
-    if transcription:
-        key_points = extract_points(transcription)
+    # Text input for transcription
+    transcription = st.text_area("Paste the transcription text here:", height=300)
 
-        # Display extracted key points
-        st.write("Extracted Key Points:")
-        for i, point in enumerate(key_points, 1):
-            st.write(f"{i}. {point}")
-    else:
-        st.warning("Please enter the transcription text for analysis.")
+    if st.button("Analyze"):
+        if transcription:
+            key_points = extract_points(transcription)
+
+            # Display extracted key points
+            st.write("Extracted Key Points:")
+            for i, point in enumerate(key_points, 1):
+                st.write(f"{i}. {point}")
+        else:
+            st.warning("Please enter the transcription text for analysis.")
+else:
+    st.warning("NLTK data could not be downloaded.")
