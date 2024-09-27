@@ -1,62 +1,42 @@
 import streamlit as st
-import re
+import nltk
+from nltk.tokenize import sent_tokenize
+from nltk.corpus import stopwords
+from collections import Counter
 
-def extract_insights(transcription):
-    # Initialize a dictionary to hold extracted insights
-    insights = {
-        "years_of_experience": None,
-        "industries": [],
-        "tech_stack": [],
-        "skills": [],
-        "projects": []
-    }
+# Download necessary NLTK data files
+nltk.download('punkt')
+nltk.download('stopwords')
+
+def extract_points(text):
+    # Tokenize the text into sentences
+    sentences = sent_tokenize(text)
+
+    # Remove stop words for better insight extraction
+    stop_words = set(stopwords.words('english'))
+    words = [word for word in text.split() if word.lower() not in stop_words]
     
-    # Regex patterns for extracting information
-    years_pattern = r'(\d+)\s+years?\s+of\s+experience'
-    industries_pattern = r'(banking|inventory|software|technology|finance|healthcare|education|retail|manufacturing)'  # Add more industries as needed
-    tech_stack_pattern = r'\b(SQL|Python|Java|JavaScript|C#|HTML|CSS|React|Node.js|Django|Flask|Swift|Kotlin)\b'  # Extend as needed
-    skills_pattern = r'\b(skill1|skill2|skill3|skill4)\b'  # Replace with actual skill names
-    projects_pattern = r'\b(project1|project2|project3|project4)\b'  # Replace with actual project names
+    # Count word frequency
+    word_freq = Counter(words)
 
-    # Extract years of experience
-    years_match = re.search(years_pattern, transcription)
-    if years_match:
-        insights["years_of_experience"] = years_match.group(1)
+    # Extract key sentences based on word frequency
+    key_sentences = sorted(sentences, key=lambda x: sum(word_freq[word] for word in x.split()), reverse=True)
 
-    # Extract industries
-    industries_matches = re.findall(industries_pattern, transcription, re.IGNORECASE)
-    insights["industries"] = list(set(industries_matches))
-
-    # Extract tech stack
-    tech_stack_matches = re.findall(tech_stack_pattern, transcription)
-    insights["tech_stack"] = list(set(tech_stack_matches))
-
-    # Extract skills
-    skills_matches = re.findall(skills_pattern, transcription)
-    insights["skills"] = list(set(skills_matches))
-
-    # Extract projects
-    projects_matches = re.findall(projects_pattern, transcription)
-    insights["projects"] = list(set(projects_matches))
-
-    return insights
+    return key_sentences[:5]  # Return the top 5 sentences
 
 # Streamlit app
-st.title("Text Analysis for Tech Profiles")
+st.title("General Text Analysis")
 
 # Text input for transcription
 transcription = st.text_area("Paste the transcription text here:", height=300)
 
 if st.button("Analyze"):
     if transcription:
-        insights = extract_insights(transcription)
+        key_points = extract_points(transcription)
 
-        # Display extracted insights
-        st.write("Extracted Insights:")
-        st.write(f"Years of Experience: {insights['years_of_experience']}")
-        st.write(f"Industries Worked In: {', '.join(insights['industries']) if insights['industries'] else 'None'}")
-        st.write(f"Tech Stack: {', '.join(insights['tech_stack']) if insights['tech_stack'] else 'None'}")
-        st.write(f"Skills: {', '.join(insights['skills']) if insights['skills'] else 'None'}")
-        st.write(f"Projects Worked On: {', '.join(insights['projects']) if insights['projects'] else 'None'}")
+        # Display extracted key points
+        st.write("Extracted Key Points:")
+        for i, point in enumerate(key_points, 1):
+            st.write(f"{i}. {point}")
     else:
         st.warning("Please enter the transcription text for analysis.")
