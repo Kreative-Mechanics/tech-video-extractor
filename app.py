@@ -1,84 +1,62 @@
 import streamlit as st
-import whisper
 import re
-import os
 
-# Function to transcribe audio using Whisper
-def transcribe_audio(audio_path):
-    try:
-        model = whisper.load_model("base")
-        st.write("Transcribing audio...")
-        result = model.transcribe(audio_path)
-        return result["text"]
-    except Exception as e:
-        st.error(f"Error during audio transcription: {e}")
-        return None
-
-# Function to extract insights from the transcription
 def extract_insights(transcription):
-    st.write("Extracting insights...")
-    
-    # Regex for extracting years of experience
-    experience_pattern = r"(\d{1,2})\s*years of experience"
-    experience_match = re.search(experience_pattern, transcription.lower())
-    years_of_experience = experience_match.group(1) if experience_match else "Not mentioned"
-    
-    # Tech stack (list of common programming languages and tools)
-    tech_stack_keywords = ["python", "java", "sql", "javascript", "c++", "html", "css", "docker", "kubernetes", "aws", "azure"]
-    tech_stack = [tech for tech in tech_stack_keywords if tech in transcription.lower()]
-    
-    # Extracting industry information
-    industry_keywords = ["banking", "finance", "healthcare", "education", "retail", "technology"]
-    industry = [ind for ind in industry_keywords if ind in transcription.lower()]
-    
-    # Projects worked on (basic check for the keyword "project")
-    project_pattern = r"project[s]?"
-    projects_worked_on = "Mentioned" if re.search(project_pattern, transcription.lower()) else "Not mentioned"
-    
-    # Compile the extracted insights
+    # Initialize a dictionary to hold extracted insights
     insights = {
-        "Years of Experience": years_of_experience,
-        "Tech Stack": tech_stack,
-        "Industry": industry if industry else "Not mentioned",
-        "Projects": projects_worked_on
+        "years_of_experience": None,
+        "industries": [],
+        "tech_stack": [],
+        "skills": [],
+        "projects": []
     }
     
+    # Regex patterns for extracting information
+    years_pattern = r'(\d+)\s+years?\s+of\s+experience'
+    industries_pattern = r'(banking|inventory|software|technology|finance|healthcare|education|retail|manufacturing)'  # Add more industries as needed
+    tech_stack_pattern = r'\b(SQL|Python|Java|JavaScript|C#|HTML|CSS|React|Node.js|Django|Flask|Swift|Kotlin)\b'  # Extend as needed
+    skills_pattern = r'\b(skill1|skill2|skill3|skill4)\b'  # Replace with actual skill names
+    projects_pattern = r'\b(project1|project2|project3|project4)\b'  # Replace with actual project names
+
+    # Extract years of experience
+    years_match = re.search(years_pattern, transcription)
+    if years_match:
+        insights["years_of_experience"] = years_match.group(1)
+
+    # Extract industries
+    industries_matches = re.findall(industries_pattern, transcription, re.IGNORECASE)
+    insights["industries"] = list(set(industries_matches))
+
+    # Extract tech stack
+    tech_stack_matches = re.findall(tech_stack_pattern, transcription)
+    insights["tech_stack"] = list(set(tech_stack_matches))
+
+    # Extract skills
+    skills_matches = re.findall(skills_pattern, transcription)
+    insights["skills"] = list(set(skills_matches))
+
+    # Extract projects
+    projects_matches = re.findall(projects_pattern, transcription)
+    insights["projects"] = list(set(projects_matches))
+
     return insights
 
-# Main Streamlit App Logic
-def main():
-    st.title("Tech Profile Audio Analyzer")
-    
-    # Upload audio file
-    audio_file = st.file_uploader("Upload your tech profile audio", type=['wav', 'mp3'])
-    
-    if audio_file:
-        # Save the uploaded audio temporarily
-        audio_path = audio_file.name
-        with open(audio_path, "wb") as f:
-            f.write(audio_file.read())
-        
-        # Transcribe the audio
-        transcription = transcribe_audio(audio_path)
-        
-        if transcription:
-            st.write("Transcription")
-            st.text(transcription)
-            
-            # Extract insights from the transcription
-            insights = extract_insights(transcription)
-            
-            # Display insights
-            st.write("Profile Analysis")
-            st.write(f"Years of Experience: {insights['Years of Experience']}")
-            st.write(f"Tech Stack: {', '.join(insights['Tech Stack'])}")
-            st.write(f"Industry: {', '.join(insights['Industry'])}")
-            st.write(f"Projects Worked On: {insights['Projects']}")
-            
-            # Clean up temporary files
-            os.remove(audio_path)
-        else:
-            st.error("Transcription failed.")
+# Streamlit app
+st.title("Text Analysis for Tech Profiles")
 
-if __name__ == "__main__":
-    main()
+# Text input for transcription
+transcription = st.text_area("Paste the transcription text here:", height=300)
+
+if st.button("Analyze"):
+    if transcription:
+        insights = extract_insights(transcription)
+
+        # Display extracted insights
+        st.write("Extracted Insights:")
+        st.write(f"Years of Experience: {insights['years_of_experience']}")
+        st.write(f"Industries Worked In: {', '.join(insights['industries']) if insights['industries'] else 'None'}")
+        st.write(f"Tech Stack: {', '.join(insights['tech_stack']) if insights['tech_stack'] else 'None'}")
+        st.write(f"Skills: {', '.join(insights['skills']) if insights['skills'] else 'None'}")
+        st.write(f"Projects Worked On: {', '.join(insights['projects']) if insights['projects'] else 'None'}")
+    else:
+        st.warning("Please enter the transcription text for analysis.")
